@@ -6,10 +6,10 @@ from scipy.linalg import norm
 import numpy as np
 
 ## ==============================================================================
-#n = 100
-#k = 5
-#X = np.random.rand( n, k )
-#A = identity( n )
+n = 100
+k = 5
+X = np.random.rand( n, k )
+A = identity( n )
 ## ------------------------------------------------------------------------------
 #eigenvalues, eigenvectors = new_lobpcg( A, X )
 
@@ -21,46 +21,51 @@ import numpy as np
 
 #for kk in xrange( k ):
     #print "Res: ", norm( A*eigenvectors[:,kk] - eigenvalues[kk]*eigenvectors[:,kk] )
-#print
-### ==============================================================================
-#n = 100
-#k = 5
-#X = np.ones( (n, k) )
+##print
+## ==============================================================================
+n = 100
+k = 5
+X = np.ones( (n, k) )
+X[0,0] = 1.0
+X[0,1] = 2.0
+X[0,2] = 3.0
+X[0,3] = 4.0
+X[0,4] = 5.0
 
-#e = np.ones( n )
-#data = np.array( [-e, 2.0*e, -e ] )
-#A = spdiags( data, [-1,0,1], n, n )
+e = np.ones( n )
+data = np.array( [-e, 2.0*e, -e ] )
+A = spdiags( data, [-1,0,1], n, n )
 
-##A = np.random.rand( n, n ) + 1j * np.random.rand( n, n )
-##A = 0.5 * ( A + A.T.conjugate() )
+#A = np.random.rand( n, n ) + 1j * np.random.rand( n, n )
+#A = 0.5 * ( A + A.T.conjugate() )
 
-## ------------------------------------------------------------------------------
-#eigenvalues, eigenvectors = new_lobpcg( A, X, maxiter = n )
+# ------------------------------------------------------------------------------
+eigenvalues, eigenvectors = new_lobpcg( A, X, maxiter = n )
 
-#for kk in xrange( k ):
-    #print "Res: ", norm( A*eigenvectors[:,kk] - eigenvalues[kk]*eigenvectors[:,kk] )
-#print
+for kk in xrange( k ):
+    print "Res: ", norm( A*eigenvectors[:,kk] - eigenvalues[kk]*eigenvectors[:,kk] )
+print
 # ------------------------------------------------------------------------------
 #eigenvalues, eigenvectors = scipy_lobpcg( A, X, verbosityLevel = 0 )
 
 #for kk in xrange( k ):
     #print "Res: ", norm( A*eigenvectors[:,kk] - eigenvalues[kk]*eigenvectors[:,kk] )
-# ==============================================================================
-n = 10
-k = 2
-#X = np.random.rand( n, k ) + 1j * np.random.rand( n, k )
-X = np.ones( (n, k) )
-X[0,1] = 0.0
+#==============================================================================
+#n = 10
+#k = 2
+##X = np.random.rand( n, k ) + 1j * np.random.rand( n, k )
+#X = np.ones( (n, k) )
+#X[0,1] = 0.0
 
-e = np.ones( n )
-data = np.array( [-1j*e, 2.0*e, 1j*e ] )
-A = spdiags( data, [-1,0,1], n, n )
-# ------------------------------------------------------------------------------
-eigenvalues, eigenvectors = new_lobpcg( A, X, verbosity = 0, maxiter = 1000 )
+#e = np.ones( n )
+#data = np.array( [-1j*e, 2.0*e, 1j*e ] )
+#A = spdiags( data, [-1,0,1], n, n )
+## ------------------------------------------------------------------------------
+#eigenvalues, eigenvectors = new_lobpcg( A, X, verbosity = 0, maxiter = 1000 )
 
-for kk in xrange( k ):
-    print "Res: ", norm( A*eigenvectors[:,kk] - eigenvalues[kk]*eigenvectors[:,kk] )
-print
+#for kk in xrange( k ):
+    #print "Res: ", norm( A*eigenvectors[:,kk] - eigenvalues[kk]*eigenvectors[:,kk] )
+#print
 # ------------------------------------------------------------------------------
 #eigenvalues, eigenvectors = scipy_lobpcg( A, X, verbosityLevel = 0 )
 

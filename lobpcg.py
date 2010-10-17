@@ -46,7 +46,7 @@ def lobpcg( A,
             blockvector_by = B * blockvector_y
             gram_y = _block_vdot( blockvector_y, blockvector_by )
 
-        gram_y = 0.5 * ( gram_y + gram_y.T.conjugate() )
+        assert np.allclose( gram_y, gram_y.T.conjugate() )
 
         if B is None:
             YX = _block_vdot( blockvector_y, blockvector_x )
@@ -79,8 +79,7 @@ def lobpcg( A,
         blockvector_x, blockvector_bx = orth( B, blockvector_x )
         blockvector_bx = B * blockvector_x
         gram_xbx = _block_vdot( blockvector_x, blockvector_bx )
-        if (gram_xbx.imag != 0.0).any():
-            gram_xbx = 0.5 * ( gram_xbx + gram_xbx.T.conjugate() )
+        assert np.allclose ( gram_xbx, gram_xbx.T.conjugate() )
 
         try:
             gram_xbx = cholesky( gram_xbx )
@@ -106,11 +105,11 @@ def lobpcg( A,
     lambda_history = np.zeros( (block_size, maxiter+1) )
     condest_g_history = np.zeros( maxiter+1 )
 
-    blockvector_br = np.zeros( (n, block_size), dtype=complex )
-    blockVector_ar = np.zeros( (n, block_size), dtype=complex )
-    blockvector_p  = np.zeros( (n, block_size), dtype=complex )
-    blockvector_ap = np.zeros( (n, block_size), dtype=complex )
-    blockvector_bp = np.zeros( (n, block_size), dtype=complex )
+    blockvector_br = np.zeros( (n, block_size), dtype = complex )
+    blockVector_ar = np.zeros( (n, block_size), dtype = complex )
+    blockvector_p  = np.zeros( (n, block_size), dtype = complex )
+    blockvector_ap = np.zeros( (n, block_size), dtype = complex )
+    blockvector_bp = np.zeros( (n, block_size), dtype = complex )
     # --------------------------------------------------------------------------
     # Initial settings for the loop
     blockvector_ax = A * blockvector_x
@@ -118,7 +117,7 @@ def lobpcg( A,
     gram_xax = _block_vdot( blockvector_x, blockvector_ax )
     assert np.allclose ( gram_xax, gram_xax.T.conjugate() )
 
-    eigenvalues, eigenvectors  = symeig( gram_xax )
+    eigenvalues, eigenvectors  = _symeig( gram_xax )
 
     #if issparse(blockvector_x):
         #coordX = sparse( eigenvectors )
@@ -286,8 +285,7 @@ def lobpcg( A,
                 gram_pbp =  _block_vdot( blockvector_p[:, active_mask],
                                          blockvector_p[:, active_mask]
                                        )
-                if ( gram_pbp.imag != 0.0 ).any():
-                    gram_pbp = 0.5 * ( gram_pbp + gram_pbp.T.conjugate() )
+                assert np.allclose( gram_pbp, gram_pbp.T.conjugate() )
 
                 try:
                     gram_pbp = cholesky( gram_pbp )
@@ -301,8 +299,7 @@ def lobpcg( A,
                 gram_pbp = _block_vdot( blockvector_p [:, active_mask],
                                         blockvector_bp[:, active_mask]
                                       )
-                if (gram_pbp.imag != 0.0).any():
-                    gram_pbp = 0.5 * ( gram_pbp + gram_pbp.T.conjugate() )
+                assert np.allclose( gram.pbp, gram_pbp.T.conjugate() )
 
                 try:
                     gram_pbp = cholesky( gram_pbp )
@@ -349,11 +346,11 @@ def lobpcg( A,
         gram_rar = _block_vdot( blockVector_ar[:, active_mask],
                                 blockvector_r[:, active_mask]
                               )
-        gram_rar = 0.5 * ( gram_rar + gram_rar.T.conjugate() )
+        assert np.allclose( gram_rar, gram_rar.T.conjugate() )
 
         if explicit_gram_flag:
             gram_xax = _block_vdot( blockvector_ax, blockvector_x )
-            gram_xax = 0.5 * ( gram_xax + gram_xax.T.conjugate() )
+            assert np.allclose( gram_xax, gram_xax.T.conjugate() )
             if B is None:
                 gram_xbx = _block_vdot( blockvector_x, blockvector_x )
                 gram_rbr = _block_vdot( blockvector_r[:, active_mask],
@@ -496,7 +493,7 @@ def lobpcg( A,
         # gram_a and gram_b are both symmetric and real, so there should be
         # some way to exploit this. eigh() is not suitable, thought, as gram_b
         # may very well be indefinite. Hence, use eig() for now.
-        eigenvalues, eigenvectors = symeig( gram_a, gram_b )
+        eigenvalues, eigenvectors = _symeig( gram_a, gram_b )
         assert ( eigenvalues.imag == 0.0 ).all()
         eigenvalues = eigenvalues.real
         # Unfortunately, eig() forgets to normalize with generalized
@@ -592,7 +589,7 @@ def lobpcg( A,
     gram_xax = 0.5 * ( gram_xax.T.conjugate() + gram_xax )
 
     # Raileigh-Ritz for blockvector_x, which is already operatorB-orthonormal
-    eigenvalues, eigenvectors = symeig( gram_xax, gram_xbx )
+    eigenvalues, eigenvectors = _symeig( gram_xax, gram_xbx )
     assert ( eigenvalues.imag == 0 ).all()
     eigenvalues = eigenvalues.real
 
@@ -658,7 +655,7 @@ def _block_vdot( blockvector_x, blockvector_y ):
             #A[k1, k2] = np.vdot( blockvector_x[:, k1], blockvector_y[:, k2] )
     #return A
 # ==============================================================================
-def symeig( mtxA, mtxB = None, eigenvectors = True, select = None ):
+def _symeig( mtxA, mtxB = None, eigenvectors = True, select = None ):
     '''
     Solves a symmetric eigenvalue problem as similarly as MATLAB(R) does.
     '''
@@ -683,8 +680,8 @@ def symeig( mtxA, mtxB = None, eigenvectors = True, select = None ):
 ##         print w
 ##         print v
 ##         print info
-##         from symeig import symeig
-##         print symeig( mtxA, mtxB )
+##         from _symeig import _symeig
+##         print _symeig( mtxA, mtxB )
     else:
         out = sla.eig( mtxA, mtxB, right = eigenvectors )
         w = out[0]
