@@ -66,8 +66,7 @@ def lobpcg( A,
                                     #)
 
         gram_xbx = _block_vdot( blockvector_x, blockvector_x )
-        assert ( gram_xbx.imag == 0 ).all()
-        gram_xbx = gram_xbx.real
+        assert np.allclose( gram_xbx, gram_xbx.T.conjugate() )
 
         try:
             gram_xbx = cholesky( gram_xbx )
@@ -133,7 +132,8 @@ def lobpcg( A,
 
     condest_g_history[0] = -log10(eps) / 2 #if too small cause unnecessary restarts
     assert( (eigenvalues.imag==0).all() )
-    lambda_history[ :block_size, 1 ] = eigenvalues.real
+    eigenvalues = eigenvalues.real
+    lambda_history[ :block_size, 1 ] = eigenvalues
 
     active_mask = np.ones( block_size, dtype=bool )
     current_block_size = block_size  # iterate all
@@ -163,9 +163,9 @@ def lobpcg( A,
         # compute all residuals
         if B is None:
             if block_size > 1:
-                print 'blockvector_x', iteration_number
-                print blockvector_x
-                print
+                #print 'blockvector_x', iteration_number
+                #print blockvector_x
+                #print
                 blockvector_r = blockvector_ax \
                               - blockvector_x * eigenvalues
             else:
@@ -239,8 +239,11 @@ def lobpcg( A,
             gram_rbr = _block_vdot( blockvector_r[:, active_mask],
                                     blockvector_r[:, active_mask]
                                   )
-            # the imaginary part can only by numerical noise
-            gram_rbr = gram_rbr.real
+
+            assert np.allclose( gram_rbr, gram_rbr.T.conjugate() )
+
+            #print 'gram_rbr'
+            #print gram_rbr
 
             try:
                 gram_rbr = cholesky( gram_rbr )
@@ -248,9 +251,14 @@ def lobpcg( A,
                 print 'The residual is not full rank.'
                 raise
 
+            #print 'gram_rbr'
+            #print gram_rbr
+
             #print 'blockvector_r'
             #print blockvector_r
             blockvector_r [ :, active_mask ] = solve( gram_rbr.T, blockvector_r [:, active_mask].T ).T
+            #print 'blockvector_r'
+            #print blockvector_r
 
         else:
             blockvector_br[:, active_mask] = B * blockvector_r[ :, active_mask ]
@@ -258,8 +266,7 @@ def lobpcg( A,
             gram_rbr = _block_vdot( blockvector_r [ :, active_mask ],
                                     blockvector_br[ :, active_mask ]
                                   )
-            assert (gram_rbr.imag == 0).all()
-            gram_rbr = gram_rbr.real
+            assert np.allclose( gram_rbr, gram_rbr.T.conjugate() )
 
             try:
                 gram_rbr = cholesky( gram_rbr )
@@ -327,8 +334,13 @@ def lobpcg( A,
             active_p_size = blockvector_p[:, active_mask].shape[1]
             restart = 0
 
-        #print 'blockvector_ax', blockvector_ax
-        #print 'blockvector_r[:, active_mask]', blockvector_r[:, active_mask]
+        #print
+        #print 'blockvector_ax'
+        #print blockvector_ax
+        #print
+        #print 'blockvector_r[:, active_mask]'
+        #print blockvector_r[:, active_mask]
+        #print
         gram_xar = _block_vdot( blockvector_ax,
                                 blockvector_r[:, active_mask]
                               )
@@ -452,6 +464,8 @@ def lobpcg( A,
                     # clear gram_xax gram_xbx gram_xbr
                 else:
                     #print '2'
+                    #print 'gram_xar'
+                    #print gram_xar
                     gram_a = np.bmat( [ [ np.diag(eigenvalues),   gram_xar ],
                                         [ gram_xar.T.conjugate(), gram_rar ]
                                       ]
@@ -475,9 +489,9 @@ def lobpcg( A,
             else:
                 break
 
+        #print
         #print 'gram_a\n', gram_a
         #print 'gram_b\n', gram_b
-        #print ' ############################### '
 
         # gram_a and gram_b are both symmetric and real, so there should be
         # some way to exploit this. eigh() is not suitable, thought, as gram_b
@@ -532,7 +546,10 @@ def lobpcg( A,
 
         #print 'updating blockvector_x'
         #print blockvector_x
+        #print
+        #print 'eigenvectors[:block_size, :]'
         #print eigenvectors[:block_size, :]
+        #print
         blockvector_x = np.dot( blockvector_x, eigenvectors[:block_size, :] ) \
                       + blockvector_p
         #print blockvector_x
@@ -547,7 +564,8 @@ def lobpcg( A,
                           + blockvector_bp
 
         assert( (eigenvalues.imag == 0).all() )
-        lambda_history[:block_size, iteration_number+1] = eigenvalues.real
+        eigenvalues = eigenvalues.real
+        lambda_history[:block_size, iteration_number+1] = eigenvalues
         condest_g_history[iteration_number+1] = cond_est_g
 
         if verbosity > 0:
