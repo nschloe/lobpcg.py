@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.linalg import qr, cholesky, orth, eig, eigh, solve, svd
+from scipy.linalg import cholesky, orth, eig, eigh, solve, svd
 from scipy.sparse import spdiags
 from math import log10, log
 from scipy import mean
@@ -23,7 +23,7 @@ def lobpcg( A,
 
     if not tolerance:
         eps = np.finfo(np.double).eps
-        residual_tolerance = np.sqrt(eps) * n
+        residual_tolerance = 1.0e-5 #np.sqrt(eps) * n
 
     size_y = 0
 
@@ -60,24 +60,21 @@ def lobpcg( A,
     # --------------------------------------------------------------------------
     # B-orthonormalizing the initial vectors
     if B is None:
-        blockvector_x, gram_xbx = qr( blockvector_x,
-                                      overwrite_a = True,
-                                      econ = True
-                                    )
-        # TODO remove later
-        blockvector_x *= -1.0
-        gram_xbx *= -1.0
+        #blockvector_x, gram_xbx = qr( blockvector_x,
+                                      #overwrite_a = True,
+                                      #econ = True
+                                    #)
 
         gram_xbx = _block_vdot( blockvector_x, blockvector_x )
-
-        if (gram_xbx.imag != 0.0).any():
-            gram_xbx = 0.5 * ( gram_xbx + gram_xbx.T.conjugate() )
+        assert ( gram_xbx.imag == 0 ).all()
+        gram_xbx = gram_xbx.real
 
         try:
-            gram_xbx = cholesky( gram_xbx ).T
+            gram_xbx = cholesky( gram_xbx )
         except np.linalg.LinAlgError:
-            print 'The initial approximation after constraints is not full rank'
+            print '\nThe initial approximation after constraints is not full rank.\n'
             raise
+
         blockvector_x = solve( gram_xbx.T, blockvector_x.T ).T
     else:
         blockvector_x, blockvector_bx = orth( B, blockvector_x )
@@ -86,9 +83,8 @@ def lobpcg( A,
         if (gram_xbx.imag != 0.0).any():
             gram_xbx = 0.5 * ( gram_xbx + gram_xbx.T.conjugate() )
 
-        # TODO need .T?
         try:
-            gram_xbx = cholesky( gram_xbx ).T
+            gram_xbx = cholesky( gram_xbx )
         except np.linalg.LinAlgError:
             print 'The initial approximation after constraints is not full rank ' + \
                   'or/and operatorB is not positive definite'
@@ -121,13 +117,15 @@ def lobpcg( A,
     blockvector_ax = A * blockvector_x
 
     gram_xax = _block_vdot( blockvector_x, blockvector_ax )
-    gram_xax = 0.5 * ( gram_xax + gram_xax.T.conjugate() )
+    assert np.allclose ( gram_xax, gram_xax.T.conjugate() )
 
-    eigenvalues, eigenvectors  = eig( gram_xax, right = True )
+    eigenvalues, eigenvectors  = symeig( gram_xax )
 
     #if issparse(blockvector_x):
         #coordX = sparse( eigenvectors )
+
     blockvector_x = np.dot( blockvector_x, eigenvectors )
+
     blockvector_ax = np.dot( blockvector_ax, eigenvectors )
     if B is not None:
         blockvector_bx = blockvector_bx * eigenvectors
@@ -165,8 +163,11 @@ def lobpcg( A,
         # compute all residuals
         if B is None:
             if block_size > 1:
+                print 'blockvector_x', iteration_number
+                print blockvector_x
+                print
                 blockvector_r = blockvector_ax \
-                              - blockvector_x * spdiags(eigenvalues,0,block_size,block_size)
+                              - blockvector_x * eigenvalues
             else:
                 # to make blockvector_r full when lambda is just a scalar
                 blockvector_r = blockvector_ax \
@@ -175,7 +176,7 @@ def lobpcg( A,
         else:
             if block_size > 1:
                 blockvector_r = blockvector_ax \
-                              - blockvector_bx * spdiags(eigenvalues,0,block_size,block_size)
+                              - blockvector_bx * eigenvalues
             else:
                 # to make blockvector_r full when lambda is just a scalar
                 blockvector_r = blockvector_ax \
@@ -185,10 +186,18 @@ def lobpcg( A,
         if constraints == 'symmetric':
             raise NotImplementedError()
         # ----------------------------------------------------------------------
+        #print 'blockvector_r', iteration_number
+        #print blockvector_r
+        #print
         residual_norms = np.sqrt( sum( blockvector_r.conjugate() * blockvector_r ).T.conjugate() )
         assert( ( residual_norms.imag == 0 ).all() )
         residual_norms = residual_norms.real
         residual_norms_history[:block_size, iteration_number] = residual_norms
+
+        print 'residual_norms'
+        print residual_norms
+
+        #print iteration_number, residual_norms
 
         # index antifreeze
         active_mask = (residual_norms > residual_tolerance) & active_mask
@@ -220,6 +229,9 @@ def lobpcg( A,
         else:
             blockvector_r[:, active_mask] -= np.dot( blockvector_x, _block_vdot( blockvector_bx, blockvector_r[:, active_mask] ) )
 
+        #print '\nblockvector_r[:, active_mask]', iteration_number
+        #print blockvector_r[:, active_mask]
+
         # Making active residuals orthonormal
         if B is None:
             # [blockvector_r[:, active_mask],gram_rbr]=...
@@ -231,7 +243,7 @@ def lobpcg( A,
             gram_rbr = gram_rbr.real
 
             try:
-                gram_rbr = cholesky( gram_rbr ).T
+                gram_rbr = cholesky( gram_rbr )
             except np.linalg.LinAlgError:
                 print 'The residual is not full rank.'
                 raise
@@ -250,7 +262,7 @@ def lobpcg( A,
             gram_rbr = gram_rbr.real
 
             try:
-                gram_rbr = cholesky( gram_rbr ).T
+                gram_rbr = cholesky( gram_rbr )
             except np.linalg.LinAlgError:
                 print 'The residual is not full rank or/and operatorB is not positive definite.'
                 raise
@@ -271,7 +283,7 @@ def lobpcg( A,
                     gram_pbp = 0.5 * ( gram_pbp + gram_pbp.T.conjugate() )
 
                 try:
-                    gram_pbp = cholesky( gram_pbp ).T
+                    gram_pbp = cholesky( gram_pbp )
                 except np.linalg.LinAlgError:
                     print 'The direction matrix is not full rank.'
                     raise
@@ -280,13 +292,13 @@ def lobpcg( A,
 
             else:
                 gram_pbp = _block_vdot( blockvector_p [:, active_mask],
-                                       blockvector_bp[:, active_mask]
-                                     )
+                                        blockvector_bp[:, active_mask]
+                                      )
                 if (gram_pbp.imag != 0.0).any():
                     gram_pbp = 0.5 * ( gram_pbp + gram_pbp.T.conjugate() )
 
                 try:
-                    gram_pbp = cholesky( gram_pbp ).T
+                    gram_pbp = cholesky( gram_pbp )
                 except np.linalg.LinAlgError:
                     print 'The direction matrix is not full rank or/and operatorB is not positive definite.'
                     raise
@@ -562,7 +574,7 @@ def lobpcg( A,
     gram_xax = 0.5 * ( gram_xax.T.conjugate() + gram_xax )
 
     # Raileigh-Ritz for blockvector_x, which is already operatorB-orthonormal
-    eigenvalues, eigenvectors = eig( gram_xax, gram_xbx )
+    eigenvalues, eigenvectors = symeig( gram_xax, gram_xbx )
     assert ( eigenvalues.imag == 0 ).all()
     eigenvalues = eigenvalues.real
 
@@ -619,12 +631,14 @@ def _block_vdot( blockvector_x, blockvector_y ):
     '''
     Block version of the inner product.
     '''
-    k = blockvector_x.shape[1]
-    A = np.zeros( (k, k) )
-    for k1 in xrange(k):
-        for k2 in xrange(k):
-            A[k1, k2] = np.vdot( blockvector_x[:, k1], blockvector_y[:, k2] )
-    return A
+    a = np.dot( blockvector_x.T.conjugate(), blockvector_y )
+    return a
+    #k = blockvector_x.shape[1]
+    #A = np.zeros( (k, k) )
+    #for k1 in xrange(k):
+        #for k2 in xrange(k):
+            #A[k1, k2] = np.vdot( blockvector_x[:, k1], blockvector_y[:, k2] )
+    #return A
 # ==============================================================================
 def symeig( mtxA, mtxB = None, eigenvectors = True, select = None ):
     '''
