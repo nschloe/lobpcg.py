@@ -21,9 +21,11 @@ def lobpcg( A,
     if not maxiter:
         maxiter = min( n, 20 )
 
+    eps = np.finfo(np.double).eps
     if not tolerance:
-        eps = np.finfo(np.double).eps
-        residual_tolerance = 1.0e-5 #np.sqrt(eps) * n
+        residual_tolerance = np.sqrt(eps) * n
+    else:
+        residual_tolerance = tolerance
 
     size_y = 0
 
@@ -73,8 +75,15 @@ def lobpcg( A,
         except np.linalg.LinAlgError:
             print '\nThe initial approximation after constraints is not full rank.\n'
             raise
-
+        #print 'gram_xbx'
+        #print gram_xbx
+        # TODO A certain difference between the MATLAB and this implementation
+        # originates here: Look closely at all the digits on the solution
+        # blockvector_x. This can become significant for the iteration.
+        # Make sure this solve operation carries through cleanly.
         blockvector_x = solve( gram_xbx.T, blockvector_x.T ).T
+        print 'blockvector_x'
+        print blockvector_x
     else:
         blockvector_x, blockvector_bx = orth( B, blockvector_x )
         blockvector_bx = B * blockvector_x
@@ -118,6 +127,8 @@ def lobpcg( A,
     assert np.allclose ( gram_xax, gram_xax.T.conjugate() )
 
     eigenvalues, eigenvectors  = _symeig( gram_xax )
+    assert( (eigenvalues.imag==0).all() )
+    eigenvalues = eigenvalues.real
 
     #if issparse(blockvector_x):
         #coordX = sparse( eigenvectors )
@@ -125,13 +136,13 @@ def lobpcg( A,
     blockvector_x = np.dot( blockvector_x, eigenvectors )
 
     blockvector_ax = np.dot( blockvector_ax, eigenvectors )
+
+    
     if B is not None:
         blockvector_bx = blockvector_bx * eigenvectors
     # clear coordX
 
     condest_g_history[0] = -log10(eps) / 2 #if too small cause unnecessary restarts
-    assert( (eigenvalues.imag==0).all() )
-    eigenvalues = eigenvalues.real
     lambda_history[ :block_size, 1 ] = eigenvalues
 
     active_mask = np.ones( block_size, dtype=bool )
@@ -167,6 +178,7 @@ def lobpcg( A,
                 #print
                 blockvector_r = blockvector_ax \
                               - blockvector_x * eigenvalues
+                #print eigenvalues
             else:
                 # to make blockvector_r full when lambda is just a scalar
                 blockvector_r = blockvector_ax \
@@ -193,8 +205,8 @@ def lobpcg( A,
         residual_norms = residual_norms.real
         residual_norms_history[:block_size, iteration_number] = residual_norms
 
-        print 'residual_norms'
-        print residual_norms
+        #print 'residual_norms'
+        #print residual_norms
 
         #print iteration_number, residual_norms
 
@@ -204,6 +216,7 @@ def lobpcg( A,
         current_block_size = sum( active_mask )
         if  current_block_size == 0:
             failureFlag = 0 # all eigenpairs converged
+            print "converged1"
             break
 
         # Applying the preconditioner T to the active residulas
@@ -241,13 +254,11 @@ def lobpcg( A,
 
             assert np.allclose( gram_rbr, gram_rbr.T.conjugate() )
 
-            #print 'gram_rbr'
-            #print gram_rbr
-
             try:
                 gram_rbr = cholesky( gram_rbr )
             except np.linalg.LinAlgError:
-                print 'The residual is not full rank.'
+                print blockvector_r
+                print '\nThe residual is not full rank.\n'
                 raise
 
             #print 'gram_rbr'
@@ -484,6 +495,7 @@ def lobpcg( A,
                 else:
                     Warning( 'Gram matrix ill-conditioned: results unpredictable.' )
             else:
+                print "converged2"
                 break
 
         #print
@@ -542,14 +554,14 @@ def lobpcg( A,
                                       )
 
         #print 'updating blockvector_x'
-        #print blockvector_x
+        #print blockvector_p.real
         #print
         #print 'eigenvectors[:block_size, :]'
         #print eigenvectors[:block_size, :]
         #print
         blockvector_x = np.dot( blockvector_x, eigenvectors[:block_size, :] ) \
                       + blockvector_p
-        #print blockvector_x
+        #print blockvector_x.real
 
         #print 'blockvector_ax', blockvector_ax
         #print 'eigenvectors[:block_size, :]', eigenvectors[:block_size, :]

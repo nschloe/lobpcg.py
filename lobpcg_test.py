@@ -26,11 +26,14 @@ A = identity( n )
 n = 100
 k = 5
 X = np.ones( (n, k) )
-X[0,0] = 1.0
-X[0,1] = 2.0
-X[0,2] = 3.0
-X[0,3] = 4.0
-X[0,4] = 5.0
+X[:,0] = range(1,n+1)
+X[:,1] = range(1,2*n+1,2)
+X[:,2] = range(1,3*n+1,3)
+X[:,3] = range(1,5*n+1,5)
+X[:,4] = range(1,6*n+1,6)
+
+
+print X
 
 e = np.ones( n )
 data = np.array( [-e, 2.0*e, -e ] )
@@ -40,7 +43,7 @@ A = spdiags( data, [-1,0,1], n, n )
 #A = 0.5 * ( A + A.T.conjugate() )
 
 # ------------------------------------------------------------------------------
-eigenvalues, eigenvectors = new_lobpcg( A, X, maxiter = n )
+eigenvalues, eigenvectors = new_lobpcg( A, X, maxiter = 1, tolerance = 1.0e-10, verbosity = 1 )
 
 for kk in xrange( k ):
     print "Res: ", norm( A*eigenvectors[:,kk] - eigenvalues[kk]*eigenvectors[:,kk] )
